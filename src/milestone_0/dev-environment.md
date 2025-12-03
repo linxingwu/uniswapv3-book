@@ -1,103 +1,100 @@
-# Development Environment
+# 开发环境
+我们将构建两个应用程序： 
+1. 一个链上应用程序：一组部署在以太坊上的智能合约。 
+1. 一个链下应用程序：一个与智能合约交互的前端应用程序。
 
-We're going to build two applications:
+虽然前端应用程序的开发是本书的一部分，但它并非本书的重点。我们构建前端应用程序仅仅是为了演示智能合约如何与前端应用程序集成。因此，前端应用程序是可选的，但我仍然会提供代码。
 
-1. An on-chain one: a set of smart contracts deployed on Ethereum.
-1. An off-chain one: a front-end application that will interact with the smart contracts.
+## 以太坊简介
 
-While the front-end application development is part of this book, it won't be our main focus. We will build it solely to demonstrate how smart contracts are integrated with front-end applications. Thus, the front-end application is optional, but I'll still provide the code.
+以太坊是一个区块链，任何人都可以在上面运行应用程序。它看起来像一个云服务提供商，但两者之间存在诸多差异：
+1. 您无需支付应用程序托管费用，但需要支付部署费用。 
+2. 您的应用程序是不可变的，也就是说，部署后您将无法对其进行修改。 
+3. 用户需要付费才能使用您的应用程序。
 
-## Quick Introduction to Ethereum
+为了更好地理解这些时刻，让我们来看看以太坊是由什么构成的。
 
-Ethereum is a blockchain that allows anyone to run applications on it. It might look like a cloud provider, but there are multiple differences:
-1. You don't pay for hosting your application. But you pay for deployment.
-1. Your application is immutable. That is: you won't be able to modify it after it's deployed.
-1. Users will pay to use your application.
+以太坊（以及任何其他区块链）的核心是数据库。以太坊数据库中最有价值的数据是账户状态。账户是一个以太坊地址及其关联数据：
+1. 余额：账户的以太币余额。 
+2. 代码：部署在此地址的智能合约的字节码。 
+3. 存储空间：智能合约用于存储数据的空间。 
+4. 随机数：用于防止重放攻击的序列整数。
 
-To better understand these moments, let's see what Ethereum is made of.
+以太坊的主要任务是以安全的方式构建和维护这些数据，防止未经授权的访问。
 
-At the core of Ethereum (and any other blockchain) is a database. The most valuable data in Ethereum's database is *the state of accounts*. An account is an Ethereum address with associated data:
+以太坊也是一个网络，一个由相互独立构建和维护状态的计算机组成的网络。该网络的主要目标是实现数据库访问的去中心化：不再有一个可英超修改任何数据的“权威机构”。这是通过共识机制实现的，共识机制是指网络中所有节点都必须遵守的一套规则。如果任何一方违反规则，将被排除在网络之外。
 
-1. Balance: account's ether balance.
-1. Code: bytecode of the smart contract deployed at this address.
-1. Storage: space used by smart contracts to store data.
-1. Nonce: a serial integer that's used to protect against replay attacks.
+> 有趣的是：区块链可以使用 MySQL！除了性能之外，没有别的借口不用。而以太坊则使用 LevelDB，一个快速的键值数据库。
 
-Ethereum's main job is building and maintaining this data in a secure way that doesn't allow unauthorized access.
+每个以太坊节点都运行着以太坊虚拟机（EVM）。虚拟机是一种可以运行其他程序的程序，而EVM则是一个执行智能合约的程序。用户通过交易与合约交互：除了简单的以太币发送之外，交易还可以包含智能合约调用数据。它包括：
 
-Ethereum is also a network, a network of computers that build and maintain the state independently of each other. The main goal of the network is to **decentralize access to the database**: there must be no single authority that's allowed to modify anything in the database unilaterally. This is achieved through *consensus*, which is a set of rules all the nodes in the network follow. If one party decides to abuse a rule, it'll be excluded from the network.
+1. 已编码的合约函数名称。 
+2. 函数参数。
 
-> Fun fact: blockchain can use MySQL! Nothing prevents this besides performance. In its turn, Ethereum uses [LevelDB](https://github.com/google/leveldb), a fast key-value database.
+交易被打包成区块，然后由矿工挖出区块。网络中的每个参与者都可以验证任何交易和任何区块。
 
-Every Ethereum node also runs EVM, Ethereum Virtual Machine. A virtual machine is a program that can run other programs, and EVM is a program that executes smart contracts. Users interact with contracts through transactions: besides simply sending ether, transactions can contain smart contract call data. It includes:
+从某种意义上说，智能合约类似于 JSON API，但它不是通过接口调用，而是通过调用智能合约函数并提供函数参数来实现。与 API 后端类似，智能合约执行预先设定的逻辑，并且可以选择性地修改智能合约存储。与 JSON API 不同的是，要修改区块链状态，你需要发送一笔交易，并且每笔交易都需要支付一定的费用。
 
-1. An encoded contract function name.
-2. Function parameters.
+最后，以太坊节点公开了一个 JSON-RPC API。通过这个 API，我们可以与节点交互，例如：获取账户余额、估算 gas 费用、获取区块和交易记录、发送交易，以及在不发送交易的情况下执行合约调用（用于从智能合约中读取数据）。您可以在[这里](https://eth.wiki/json-rpc/API)找到所有可用端点的完整列表。
 
-Transactions are packed in blocks and blocks are then mined by miners. Each participant in the network can validate any transaction and any block.
+> 交易也可以通过 JSON-RPC API 发送，请参阅 [eth_sendTransaction](https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendtransaction)
 
-In a sense, smart contracts are similar to JSON APIs but instead of endpoints you call smart contract functions and you provide function arguments. Similar to API backends, smart contracts execute programmed logic, which can optionally modify smart contract storage. Unlike JSON API, you need to send a transaction to mutate the blockchain state, and you'll need to pay for each transaction you're sending.
+## 本地开发环境
 
-Finally, Ethereum nodes expose a JSON-RPC API. Through this API we can interact with a node to: get account balance, estimate gas costs, get blocks and transactions, send transactions, and execute contract calls without sending transactions (this is used to read data from smart contracts). [Here](https://eth.wiki/json-rpc/API) you can find the full list of available endpoints.
-
-> Transactions are also sent through the JSON-RPC API, see [eth_sendTransaction](https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendtransaction).
-
-## Local Development Environment
-
-Multiple smart contract development environments are used today:
+目前有多种智能合约开发环境：
 1. [Truffle](https://trufflesuite.com)
 1. [Hardhat](https://hardhat.org)
 1. [Foundry](https://github.com/foundry-rs/foundry)
 
-Truffle is the oldest of the three and is the least popular of them. Hardhat is its improved descendant and is the most widely used tool. Foundry is the new kid on the block, which brings a different view on testing.
+Truffle是三者中最古老的，也是最不受欢迎的。Hardhat是它的改进版，也是应用最广泛的工具。Foundry是后起之秀，它带来了不同的测试视角。
 
-While HardHat is still a popular solution, more and more projects are switching to Foundry. And there are multiple reasons for that:
-1. With Foundry, we can write tests in Solidity. This is much more convenient because we don't need to jump between JavaScript (Truffle and HardHat use JS for tests and automation) and Solidity during development. Writing tests in Solidity is much more convenient because you have all the native features (e.g. you don't need a special type for big numbers and you don't need to convert between strings and [BigNumber](https://docs.ethers.io/v5/api/utils/bignumber/)).
-1. Foundry doesn't run a node during testing. This makes testing and iterating on features much faster! Truffle and HardHat start a node whenever you run tests; Foundry executes tests on an internal EVM.
+虽然 HardHat 仍然是一种流行的解决方案，但越来越多的项目正在转向 Foundry。这其中有很多原因：
+1. 使用 Foundry，我们可以用 Solidity 编写测试。这方便得多，因为我们在开发过程中无需在 JavaScript（Truffle 和 HardHat 使用 JS 进行测试和自动化）和 Solidity 之间来回切换。用 Solidity 编写测试也更加方便，因为它拥有所有原生特性（例如，无需为大数创建特殊类型，也无需在字符串和 BigNumber 之间进行转换）。
+1. Foundry 在测试期间不会运行节点。这使得功能测试和迭代速度更快！Truffle 和 HardHat 会在每次运行测试时启动节点；而 Foundry 则在内部 EVM 上执行测试。
 
-That being said, we'll use Foundry as our main smart contract development and testing tool.
+也就是说，我们将使用 Foundry 作为我们主要的智能合约开发和测试工具。
 
 ### Foundry
 
-[Foundry](https://github.com/foundry-rs/foundry) is a set of tools for Ethereum applications development. Specifically, we're going to use:
-1. [Forge](https://github.com/foundry-rs/foundry/tree/master/forge), a testing framework for Solidity.
-1. [Anvil](https://github.com/foundry-rs/foundry/tree/master/anvil), a local Ethereum node designed for development with Forge. We'll use it to deploy our contracts to a local node and connect to it through the front-end app.
-1. [Cast](https://github.com/foundry-rs/foundry/tree/master/cast), a CLI tool with a ton of helpful features.
+[Foundry](https://github.com/foundry-rs/foundry) 是一套用于以太坊应用程序开发的工具集。具体来说，我们将使用：
+1. [Forge](https://github.com/foundry-rs/foundry/tree/master/forge), 一个 Solidity 的测试框架。
+1. [Anvil](https://github.com/foundry-rs/foundry/tree/master/anvil), 这是一个专为 Forge 开发而设计的本地以太坊节点。我们将使用它把合约部署到本地节点，并通过前端应用程序连接到该节点。
+1. [Cast](https://github.com/foundry-rs/foundry/tree/master/cast), 一款拥有大量实用功能的命令行工具。
 
-Forge makes smart contracts developer's life so much easier. With Forge, we don't need to run a local node to test contracts. Instead, Forge runs tests on its internal EVM, which is much faster and doesn't require sending transactions and mining blocks.
+Forge 让智能合约开发者的工作变得轻松许多。有了 Forge，我们无需运行本地节点来测试合约。Forge 会在其内部的 EVM 上运行测试，速度更快，而且无需发送交易和挖矿。
 
-Forge lets us write tests in Solidity! Forge also makes it easier to simulate blockchain state: we can easily fake our ether or token balance, execute contracts from other addresses, deploy any contracts at any address, etc.
+Forge 让我们可以用 Solidity 编写测试！Forge 也让模拟区块链状态变得更加容易：我们可以轻松地模拟以太币或代币余额，从其他地址执行合约，在任何地址部署任何合约等等。
 
-However, we'll still need a local node to deploy our contract to. For that, we'll use Anvil. Front-end applications use JavaScript Web3 libraries to interact with Ethereum nodes (to send transactions, query state, estimate transaction gas cost, etc.)–this is why we'll need to run a local node.
+但是，我们仍然需要一个本地节点来部署合约。为此，我们将使用 Anvil。前端应用程序使用 JavaScript Web3 库与以太坊节点交互（例如发送交易、查询状态、估算交易 gas 费用等）——这就是为什么我们需要运行本地节点的原因。
 
 ### Ethers.js
 
-[Ethers.js](https://github.com/ethers-io/ethers.js/) is a set of Ethereum utilities written in JavaScript. This is one of the two (the other one is [web3.js](https://github.com/ChainSafe/web3.js)) most popular JavaScript libraries used in decentralized applications development. These libraries allow us to interact with an Ethereum node via the JSON-API, and they come with multiple utility functions that make the developer's life easier.
+[Ethers.js](https://github.com/ethers-io/ethers.js/) 是一套用 JavaScript 编写的以太坊实用工具集。它是去中心化应用开发中最流行的两个 JavaScript 库之一（[web3.js](https://github.com/ChainSafe/web3.js))。这些库允许我们通过 JSON API 与以太坊节点进行交互，并且提供了许多实用函数，可以简化开发人员的工作。
 
 ### MetaMask
 
-[MetaMask](https://metamask.io/) is an Ethereum wallet in your browser. It's a browser extension that creates and securely stores private keys. MetaMask is the main Ethereum wallet application used by millions of users. We'll use it to sign transactions that we'll send to our local node.
+[MetaMask](https://metamask.io/) 是一款内置于浏览器中的以太坊钱包。它是一款浏览器扩展程序，可以创建并安全地存储私钥。MetaMask 是数百万用户使用的主要以太坊钱包应用程序。我们将使用它来签署要发送到本地节点的交易。
 
 ### React
 
-[React](https://reactjs.org/) is a well-known JavaScript library for building front-end applications. You don't need to know React, I'll provide a template application.
+[React](https://reactjs.org/) 是一个知名的 JavaScript 前端应用开发库。你不需要了解 React，我会提供一个应用模板。
 
-## Setting up the Project
+## 项目设置
 
-To set up the project, create a new folder and run `forge init` in it:
+要设置项目，请创建一个新文件夹并在其中运行 `forge init` 命令：
 ```shell
 $ mkdir uniswapv3clone
 $ cd uniswapv3clone
 $ forge init
 ```
 
-> If you're using Visual Studio Code, add `--vscode` flag to `forge init`: `forge init --vscode`. Forge will initialize the project with VSCode-specific settings.
+> 如果您使用的是 Visual Studio Code，请在 `forge init` 命令中添加 `--vscode` 参数：`forge init --vscode`。Forge 将为 VSCode 进行特殊的适配。
 
-Forge will create sample contracts in the `src`, `test`, and `script` folders–these can be removed.
+Forge 会在 `src`, `test`和 `script` 文件夹中创建示例合约——这些合约可以删掉。
 
-To set up the front-end application:
+设置前端应用程序：
 ```shell
 $ npx create-react-app ui
 ```
 
-It's located in a subfolder so there's no conflict between folder names.
+它位于子文件夹中，因此文件夹名称之间不存在冲突。

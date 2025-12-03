@@ -1,66 +1,65 @@
-# Constant Function Market Makers
+# 恒定函数做市商
 
-> This chapter retells [the whitepaper of Uniswap V2](https://uniswap.org/whitepaper.pdf). Understanding this math is crucial to build a Uniswap-like DEX, but it's totally fine if you don't understand everything at this stage.
+>本章重述了 [the whitepaper of Uniswap V2](https://uniswap.org/whitepaper.pdf)的内容。理解这些数学原理对于构建类似 Uniswap 的去中心化交易所 (DEX) 至关重要，但如果您现阶段无法完全理解所有内容，也完全没问题。
 
-As I mentioned in the previous section, there are different approaches to building AMM. We'll be focusing on and building one specific type of AMM–Constant Function Market Maker. Don't be scared by the long name! At its core is a very simple mathematical formula:
+正如我在上一节中提到的，构建AMM有多种方法。我们将重点介绍并构建一种特定类型的AMM——恒定函数做市商。别被它冗长的名称吓到！它的核心是一个非常简单的数学公式：
 
 $$x * y = k$$
 
-That's it, this is the AMM.
+就这，这就是AMM。
 
-$x$ and $y$ are pool contract reserves–the amounts of tokens it currently holds. *k* is just their product, actual value doesn't matter.
+$x$ 和 $y$ 是资金池合约的储备金——即它当前持有的代币数量。k 只是它们的乘积，实际价值无关紧要。
 
-> **Why are there only two reserves, *x* and *y*?**  
-Each Uniswap pool can hold only two tokens. We use *x* and *y* to refer to reserves of one pool, where *x* is the reserve of the first token and *y* is the reserve of the other token, and the order doesn't matter.
+>为什么只有两个储备金，x 和 y？ 每个 Uniswap 资金池只能持有两种代币。我们用 x 和 y 来表示一个资金池的两个储备金，其中 x 代表第一种代币的储备金，y 代表另一种代币的储备金，顺序无关紧要。
 
-The constant function formula says: **after each trade, *k* must remain unchanged**. When traders make trades, they put some amount of one token into a pool (the token they want to sell) and remove some amount of the other token from the pool (the token they want to buy). This changes the reserves of the pool, and the constant function formula says that **the product** of reserves must not change. As we will see many times in this book, this simple requirement is the core algorithm of how Uniswap works.
+常数函数公式表明：每次交易后，k 必须保持不变。交易者进行交易时，会将一定数量的一种代币（他们想要出售的代币）放入资金池，并从资金池中取出一定数量的另一种代币（他们想要购买的代币）。这会改变资金池的储备量，而常数函数公式表明，储备量的乘积必须保持不变。正如我们将在本书中多次看到的，这个简单的要求正是 Uniswap 运行的核心算法。
 
-## The Trade Function
-Now that we know what pools are, let's write the formula of how trading happens in a pool:
+## 交易函数
+既然我们已经了解了什么是资金池，接下来让我们写出资金池交易的公式：
 
 $$(x + r\Delta x)(y - \Delta y) = k$$
 
-1. There's a pool with some amount of token 0 ($x$) and some amount of token 1 ($y$) 
-1. When we buy token 1 for token 0, we give some amount of token 0 to the pool ($\Delta x$).
-1. The pool gives us some amount of token 1 in exchange ($\Delta y$).
-1. The pool also takes a small fee ($r = 1 - \text{swap fee}$) from the amount of token 0 we gave.
-1. The reserve of token 0 changes ($x + r \Delta x$), and the reserve of token 1 changes as well ($y - \Delta y$).
-1. The product of updated reserves must still equal $k$.
+1. 有一个资金池，其中包含一定数量的代币 0 ( 𝑥 ) 和一定数量的代币 1 ( 𝑦 )。
+1. 当我们用代币 0 购买代币 1 时，我们会将一定数量的代币 0 放入资金池（ Δ 𝑥 ）。
+1. 资金池会给我们一定数量的代币 1 作为交换 ( Δ 𝑦 )。
+1. 资金池还会从我们投入的代币 0 中收取少量费用（ 𝑟 = 1 − 兑换费 ）。
+1. 代币 0 的储备发生变化（ 𝑥 + 𝑟 Δ 𝑥 ），代币 1 的储备也发生变化（ 𝑦 − Δ 𝑦 ）。
+1. 更新后的储备金乘积仍须等于 𝑘 。
 
-> We'll use token 0 and token 1 notation for the tokens because this is how they're referenced in the code. At this point, it doesn't matter which of them is 0 and which is 1.
+> 我们将使用代币 0 和代币 1 来表示tken，因为代码中就是这样引用它们的。目前，哪个是 0 哪个是 1 并不重要。
 
-We're basically giving a pool some amount of token 0 and getting some amount of token 1. The job of the pool is to give us a correct amount of token 1 calculated at a fair price. This leads us to the following conclusion: **pools decide what trade prices are**.
+我们基本上是向资金池投入一定数量的代币 0，然后获得一定数量的代币 1。资金池的职责是以合理的价格向我们提供正确数量的代币 1。由此我们可以得出以下结论：**资金池决定交易价格**。
 
-## Pricing
+## 定价
 
-How do we calculate the prices of tokens in a pool?
+我们如何计算资金池中代币的价格？
 
-Since Uniswap pools are separate smart contracts, **tokens in a pool are priced in terms of each other**. For example: in a ETH/USDC pool, ETH is priced in terms of USDC, and USDC is priced in terms of ETH. If 1 ETH costs 1000 USDC, then 1 USDC costs 0.001 ETH. The same is true for any other pool, whether it's a stablecoin pair or not (e.g. ETH/BTC).
+由于 Uniswap 资金池是独立的智能合约，池中的代币价格是相互挂钩的。例如：在 ETH/USDC 资金池中，ETH 以 USDC 计价，USDC 也以 ETH 计价。如果 1 ETH 价值 1000 USDC，那么 1 USDC 价值 0.001 ETH。对于任何其他资金池，无论是否为稳定币交易对（例如 ETH/BTC），情况都是如此。
 
-In the real world, everything is priced based on [the law of supply and demand](https://www.investopedia.com/terms/l/law-of-supply-demand.asp).  This also holds true for AMMs. We'll put the demand part aside for now and focus on supply.
+现实世界中，所有商品的价格都遵循供求规律。AMM 也不例外。我们暂且搁置需求部分，先来关注供给。
 
-The prices of tokens in a pool are determined by the supply of the tokens, that is by **the amounts of reserves of the tokens** that the pool is holding. Token prices are simply relations of reserves:
+资金池中代币的价格取决于代币的供应量，也就是资金池持有的代币储备量。代币价格本质上是储备量与供应量之间的关系：
 
 $$P_x = \frac{y}{x}, \quad P_y=\frac{x}{y}$$
 
-Where $P_x$ and $P_y$ are prices of tokens in terms of the other token.
+其中 𝑃 𝑥 和 𝑃 𝑦 分别表示两种代币相对于另一种代币的价格。
 
-Such prices are called *spot prices* and they only reflect current market prices. However, the actual price of a trade is calculated differently. And this is where we need to bring the demand part back.
+这种价格被称为现货价格，它仅反映当前的市场价格。然而，实际交易价格的计算方式有所不同。这就需要我们重新引入需求因素。
 
-Concluding from the law of supply and demand, **high demand increases the price**–and this is a property we need to have in a permissionless system. We want the price to be high when demand is high, and we can use pool reserves to measure the demand: the more tokens you want to remove from a pool (relative to the pool's reserves), the higher the impact of demand is.
+根据供求规律，高需求会推高价格——这正是我们在无需许可的系统中必须具备的特性。我们希望需求旺盛时价​​格也高，并且我们可以使用资金池储备来衡量需求：从资金池中移除的代币越多（相对于资金池的储备），需求的影响就越大。
 
-Let's return to the trade formula and look at it closer:
+让我们回到交易公式，仔细分析一下：
 
 $$(x + r\Delta x)(y - \Delta y) = xy$$
 
-As you can see, we can derive $\Delta_x$ and $\Delta y$ from it, which means we can calculate the output amount of a trade based on the input amount and vice versa:
+如您所见，我们可以从中推导出 Δ 𝑥 和 Δ 𝑦 ，这意味着我们可以根据投入量计算交易的产出量，反之亦然：
 
 $$\Delta y = \frac{yr\Delta x}{x + r\Delta x}$$
 $$\Delta x = \frac{x \Delta y}{r(y - \Delta y)}$$
 
-In fact, these formulas free us from calculating prices! We can always find the output amount using the $\Delta y$ formula (when we want to sell a known amount of tokens) and we can always find the input amount using the $\Delta x$ formula (when we want to buy a known amount of tokens). Notice that each of these formulas is a relation of reserves ($x/y$ or $y/x$) and they also take the trade amount ($\Delta x$ in the former and $\Delta y$ in the latter) into consideration. **These are the pricing functions that respect both supply and demand**. And we don't even need to calculate the prices!
+事实上，这些公式让我们无需再计算价格！我们始终可以使用 Δ 𝑦 来代表输出数量（当我们想要出售已知数量的代币时）。 我们始终可以使用 Δ 𝑥 来代表输入金额（当我们想要购买已知数量的代币时）。请注意，这些公式都是储备金关系式（ 𝑥 / 𝑦 或 𝑦 / 𝑥 ），并且它们还考虑了贸易额（前者中的 Δ 𝑥 和后者中的 Δ 𝑦 ）。这些定价函数兼顾了供求关系。我们甚至不需要计算价格！
 
-> Here's how you can derive the above formulas from the trade function:
+> 以下是如何从交易函数推导出上述公式的方法：
 $$(x + r\Delta x)(y - \Delta y) = xy$$
 $$y - \Delta y = \frac{xy}{x + r\Delta x}$$
 $$-\Delta y = \frac{xy}{x + r\Delta x} - y$$
@@ -68,7 +67,7 @@ $$-\Delta y = \frac{xy - y({x + r\Delta x})}{x + r\Delta x}$$
 $$-\Delta y = \frac{xy - xy - y r \Delta x}{x + r\Delta x}$$
 $$-\Delta y = \frac{- y r \Delta x}{x + r\Delta x}$$
 $$\Delta y = \frac{y r \Delta x}{x + r\Delta x}$$
-And:
+然后:
 $$(x + r\Delta x)(y - \Delta y) = xy$$
 $$x + r\Delta x = \frac{xy}{y - \Delta y}$$
 $$r\Delta x = \frac{xy}{y - \Delta y} - x$$
@@ -77,37 +76,37 @@ $$r\Delta x = \frac{xy - xy + x \Delta y}{y - \Delta y}$$
 $$r\Delta x = \frac{x \Delta y}{y - \Delta y}$$
 $$\Delta x = \frac{x \Delta y}{r(y - \Delta y)}$$
 
-## The Curve
+## 交易曲线
 
-The above calculations might seem too abstract and dry. Let's visualize the constant product function to better understand how it works.
+上述计算可能显得过于抽象和枯燥。让我们将恒定函数可视化，以便更好地理解其工作原理。 恒定函数的图像是一条二次双曲线：
 
 When plotted, the constant product function is a quadratic hyperbola:
 
 ![The shape of the constant product formula curve](images/the_curve.png)
 
-Where axes are the pool reserves. Every trade starts at the point on the curve that corresponds to the current ratio of reserves. To calculate the output amount, we need to find a new point on the curve, which has the $x$ coordinate of $x+\Delta x$, i.e. current reserve of token 0 + the amount we're selling. The change in $y$ is the amount of token 1 we'll get.
+图中坐标轴代表资金池储备。每笔交易都从曲线上对应于当前储备比率的点开始。 为了计算输出量，我们需要在曲线上找到一个新点，该点的坐标为 𝑥 + Δ 𝑥 ，即，当前代币储备量为 0 加上我们出售的数量。 y 的变化量 就是我们将获得的代币 1 的数量。
 
-Let's look at a concrete example:
+让我们来看一个具体的例子：
 
 ![Desmos chart example](images/desmos.png)
 
-1. The purple line is the curve, and the axes are the reserves of a pool (notice that they're equal at the start price).
-1. The start price is 1.
-1. We're selling 200 of token 0. If we use only the start price, we expect to get 200 of token 1.
-1. However, the execution price is 0.666, so we get only 133.333 of token 1!
+1. 紫色线是曲线，坐标轴是资金池的储备（请注意，在起始价格时，它们的储备相等）。
+1. 起始价格是1
+1. 我们正在出售 200 个代币 0。如果我们只使用起始价格，我们预计会得到 200 个代币 1。
+1. 但是，执行价格为 0.666，所以我们只得到了 133.333 个代币 1！
 
-This example is from [the Desmos chart](https://www.desmos.com/calculator/7wbvkts2jf) made by [Dan Robinson](https://twitter.com/danrobinson), one of the creators of Uniswap. To build a better intuition of how it works, try making up different scenarios and plotting them on the graph. Try different reserves, and see how the output amount changes when $\Delta x$ is small relative to $x$.
+这个例子来自 Uniswap 的创始人之一 Dan Robinson 制作的 Desmos（画图工具） 图表。为了更好地理解它的工作原理，可以尝试设想不同的场景，并将它们绘制在图表上。尝试不同的储备量，并观察当 Δ 𝑥 相对于 𝑥 较小时，产量如何变化。
 
-> As the legend goes, Uniswap was invented in Desmos.
+> 据传，Uniswap 是在 Desmos 中发明的。
 
-I bet you're wondering why using such a curve. It might seem like it punishes you for trading big amounts. This is true, and this is a desirable property! The law of supply and demand tells us that when demand is high (and supply is constant) the price is also high. And when demand is low, the price is also lower. This is how markets work. And, magically, the constant product function implements this mechanism! Demand is defined by the amount you want to buy, and supply is the pool reserves. When you want to buy a big amount relative to pool reserves the price is higher than when you want to buy a smaller amount. Such a simple formula guarantees such a powerful mechanism!
+我猜你肯定想知道为什么要用这样的曲线。它看起来好像会惩罚你进行大额交易。这是事实，而且这是正是我们想要的！供求规律告诉我们，当需求高（而供给不变）时，价格也高。当需求低迷时，价格也会降低。这就是市场运作的规律。神奇的是，恒定乘积函数恰好实现了这一机制！需求由你想购买的数量决定，而供给则是储备资金。当您想购买相对于资金池储备而言较大的数量时，价格会比您想购买较小数量时的价格更高。 如此简单的公式竟能保证如此强大的机制！
 
-Even though Uniswap doesn't calculate trade prices, we can still see them on the curve. Surprisingly, there are multiple prices when making a trade:
+尽管 Uniswap 不计算交易价格，我们仍然可以在曲线上看到它们。令人惊讶的是，进行交易时会出现多个价格：
 
-1. Before a trade, there's *a spot price*. It's equal to the relation of reserves, $\frac{y}{x}$ or $\frac{x}{y}$ depending on the direction of the trade. This price is also *the slope of the tangent line* at the starting point.
-1. After a trade, there's a new spot price, at a different point on the curve. And it's the slope of the tangent line at this new point.
-1. The actual price of the trade is the slope of the line connecting the two points!
+1. 交易前，存在一个现货价格。它等于储备比率，即 $\frac{y}{x}$ 或 $\frac{x}{y}$ ，具体取决于交易方向。该价格也是起点处切线的斜率。
+1. 交易完成后，现货价格会发生变化，位于曲线上的不同位置。而现货价格就是这条新位置处切线的斜率。
+1. 交易的实际价格是连接这两点的直线的斜率！
 
-**And that's the whole math of Uniswap! Phew!**
+**这就是Uniswap的全部数学原理！噫！**
 
-Well, this is the math of Uniswap V2, and we're studying Uniswap V3. So in the next part, we'll see how the mathematics of Uniswap V3 is different.
+好的，以上是Uniswap V2的数学原理，我们现在要学习的是Uniswap V3。所以在下一部分，我们将看到Uniswap V3的数学原理有何不同。

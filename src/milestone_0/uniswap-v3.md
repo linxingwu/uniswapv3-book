@@ -1,72 +1,77 @@
-# Introduction to Uniswap V3
+#  Uniswap V3
 
-> This chapter retells [the whitepaper of Uniswap V3](https://uniswap.org/whitepaper-v3.pdf). Again, it's totally ok if you don't understand all the concepts. They will be clearer when converted to code.
+> 本章重述了 Uniswap V3 白皮书的内容。再次强调，即使你没有完全理解所有概念也完全没问题。当它们转化为代码时，你会更容易理解。
 
-To better understand the innovations Uniswap V3 brings, let's first look at the imperfections of Uniswap V2.
+为了更好地了解 Uniswap V3 带来的创新，我们先来看看 Uniswap V2 的不足之处。
 
-Uniswap V2 is a general exchange that implements one AMM algorithm. However, not all trading pairs are equal.  Pairs can be grouped by price volatility:
+Uniswap V2 是一个通用交易所，它采用了一种 AMM 算法。然而，并非所有交易对都相同。交易对可以按价格波动性进行分组：
 
-1. Tokens with medium and high price volatility. This group includes most tokens since most tokens don't have their prices pegged to something and are subject to market fluctuations.
-1. Tokens with low volatility. This group includes pegged tokens, mainly stablecoins: USDC/USDT, USDC/DAI, USDT/DAI, etc.  Also: ETH/stETH, ETH/rETH (variants of wrapped ETH).
+1. 价格波动性中等和高的代币。由于大多数代币的价格没有与任何货币挂钩，因此它们会受到市场波动的影响，所以这类代币几乎涵盖了所有代币。
+1. 价格波动性低的代币。这类代币包括价格挂钩的代币，主要是稳定币：例如 USDC/USDT、USDC/DAI、USDT/DAI 等。此外，还有 ETH/stETH、ETH/rETH（封装 ETH 的变体）。
 
-These groups require different, let's call them, pool configurations. The main difference is that pegged tokens require high liquidity to reduce the demand effect (we learned about it in the previous chapter) on big trades. The prices of USDC and USDT must stay close to 1, no matter how big the number of tokens we want to buy and sell. Since Uniswap V2's general AMM algorithm is not very well suited for stablecoin trading, alternative AMMs (mainly [Curve](https://curve.fi)) were more popular for stablecoin trading.
+这些交易群体需要不同的资金池配置。主要区别在于，锚定代币需要高流动性来降低大额交易的需求效应（我们在上一章中已经了解过）。无论我们买卖的代币数量有多大，USDC 和 USDT 的价格都必须保持在 1 左右。由于 Uniswap V2 的通用 AMM 算法不太适合稳定币交易，因此其他 AMM（主要是 Curve）在稳定币交易中更受欢迎。
 
-What caused this problem is that liquidity in Uniswap V2 pools is distributed infinitely–pool liquidity allows trades at any price, from 0 to infinity:
+造成此问题的原因是 Uniswap V2 资金池中的流动性是无限分布的——资金池流动性允许以从 0 到无穷大的任何价格进行交易：
 
 ![The curve is infinite](images/curve_infinite.png)
 
-This might not seem like a bad thing, but this makes capital inefficient. Historical prices of an asset stay within some defined range, whether it's narrow or wide. For example, the historical price range of ETH is from $0.75 to $4,800 (according to [CoinMarketCap](https://coinmarketcap.com/currencies/ethereum/)). Today (June 2022, 1 ETH costs \$1,800), no one would buy 1 ether at \$5000, so it makes no sense to provide liquidity at this price. Thus, it doesn't make sense to provide liquidity in a price range that's far away from the current price or that will never be reached.
+这看似并非坏事，但实际上却会降低资本效率。资产的历史价格始终保持在某个既定的范围内，无论这个范围是窄还是宽。例如，ETH 的历史价格区间为 0.75 至 4,800 美元（根据 CoinMarketCap 的数据）。如今（2022 年 6 月，1 个 ETH 的价格为 1,800 美元），没有人会以 5,000 美元的价格购买 1 个 ETH，因此在这个价格下提供流动性毫无意义。同样，在远离当前价格或永远无法达到的价格区间内提供流动性也是没有意义的。
 
-> However, we all believe in ETH reaching \$10,000 one day.
+> 但是，我们都相信以太坊有朝一日会达到 10,000 美元。
 
-## Concentrated Liquidity
+## 集中流动性
 
-Uniswap V3 introduces *concentrated liquidity*: liquidity providers can now choose the price range they want to provide liquidity into. This improves capital efficiency by allowing to put more liquidity into a narrow price range, which makes Uniswap more diverse: it can now have pools configured for pairs with different volatility. This is how V3 improves V2.
+Uniswap V3 引入了集中流动性（concentrated liquidity）：流动性提供者现在可以选择他们希望提供流动性的价格区间。这提高了资金效率，因为可以将更多流动性集中到一个较窄的价格区间，从而使 Uniswap 更加多元化：现在可以为不同波动性的交易对配置流动性池。这就是 V3 对 V2 的改进之处。
 
-In a nutshell, a Uniswap V3 pair is many small Uniswap V2 pairs. The main difference between V2 and V3 is that, in V3, there are **many price ranges** in one pair. And each of these shorter price ranges has **finite reserves**. The entire price range from 0 to infinite is split into shorter price ranges, with each of them having its own amount of liquidity. But, what's crucial is that within that shorter price range, **it works exactly as Uniswap V2**. This is why I say that a V3 pair is many small V2 pairs.
+简而言之，一个 Uniswap V3 交易对是由许多个较小的 Uniswap V2 交易对组成的。V2 和 V3 的主要区别在于，V3 中一个交易对包含多个价格区间，每个较短的价格区间都有其有限的流动性储备。从 0 到无穷大的整个价格区间被分割成多个较短的价格区间，每个区间都有其自身的流动性。但关键在于，在这些较短的价格区间内，其运作方式与 Uniswap V2 完全相同。这就是为什么我说一个 V3 交易对是由许多个较小的 V2 交易对组成的。
 
-Now, let's try to visualize it. What we're saying is that we don't want the curve to be infinite. We cut it at the points $a$ and $b$ and say that these are the boundaries of the curve. Moreover, we shift the curve so the boundaries lay on the axes. This is what we get:
+现在，我们试着把它可视化。我们不希望这条曲线是无限长的。我们在点 a 和 b 处截取曲线，并称这两点为曲线的边界。此外，我们平移曲线，使边界与坐标轴重合。这就是我们得到的结果：
 
 ![Uniswap V3 price range](images/curve_finite.png)
 
-> It looks lonely, doesn't it? This is why there are many price ranges in Uniswap V3–so they don't feel lonely 🙂
+> 它看起来很孤单，对吧？这就是为什么 Uniswap V3 中有很多价格区间——这样它们就不会感到孤单了🙂
 
-As we saw in the previous chapter, buying or selling tokens moves the price along the curve. A price range limits the movement of the price. When the price moves to either of the points, the pool becomes **depleted**: one of the token reserves will be 0, and buying this token won't be possible.
+正如我们在上一章中看到的，买卖代币会使价格沿着曲线移动。价格区间限制了价格的波动范围。当价格移动到曲线上的任一点时，代币池就会耗尽：其中一个代币储备将变为 0，此时将无法购买该代币。
 
-On the chart above, let's assume that the start price is at the middle of the curve. To get to the point $a$, we need to buy all available $y$ and maximize $x$ in the range; to get to the point $b$, we need to buy all available $x$ and maximize $y$ in the range. At these points, there's only one token in the range!
+在上图中，我们假设起始价格位于曲线的中间位置。要到达点 a，我们需要买入所有可用的 y 代币，并在范围内最大化 x 的值；要到达点 b，我们需要买入所有可用的 x 代币，并在范围内最大化 y 的值。在这些点上，范围内都只有一个代币！
 
-> Fun fact: this allows using Uniswap V3 price ranges as limit orders!
+> 有趣的是：这允许使用 Uniswap V3 价格范围作为限价单！
 
-What happens when the current price range gets depleted during a trade? The price slips into the next price range. If the next price range doesn't exist, the trade ends up partially fulfilled-we'll see how this works later in the book.
+交易过程中，如果当前价格区间被突破会发生什么？价格会滑入下一个价格区间。如果下一个价格区间不存在，交易就会部分完成——我们将在本书后面详细探讨这一点。
 
-This is how liquidity is spread in [the USDC/ETH pool in production](https://info.uniswap.org/#/pools/0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8):
+这就是 USDC/ETH 流动性池在生产环境中的分布方式：
 
 ![Liquidity in the real USDC/ETH pool](images/usdceth_liquidity.png)
 
-You can see that there's a lot of liquidity around the current price but the further away from it the less liquidity there is–this is because liquidity providers strive to have higher efficiency of their capital. Also, the whole range is not infinite, its upper boundary is shown in the image.
+你可以看到，当前价格附近流动性很强，但越远离当前价格，流动性就越弱——这是因为流动性提供者力求提高资金效率。此外，流动性范围并非无限大，其上限已在图中显示。
 
-## The Mathematics of Uniswap V3
+## Uniswap V3 的数学原理
 
-Mathematically, Uniswap V3 is based on V2: it uses the same formulas, but they're... let's call it *augmented*.
-
-To handle transitioning between price ranges, simplify liquidity management, and avoid rounding errors, Uniswap V3 uses these new concepts:
+从数学角度来看，Uniswap V3 基于 V2：它使用相同的公式，但这些公式……我们不妨称之为增强版。 
+为了处理价格区间的转换、简化流动性管理并避免舍入误差，Uniswap V3 采用了以下新概念：
 
 $$L = \sqrt{xy}$$
 
 $$\sqrt{P} = \sqrt{\frac{y}{x}}$$
 
-$L$ is *the amount of liquidity*. Liquidity in a pool is the combination of token reserves (that is, two numbers). We know that their product is $k$, and we can use this to derive the measure of liquidity, which is $\sqrt{xy}$–a number that, when multiplied by itself, equals $k$. $L$ is the geometric mean of $x$ and $y$.
 
-$y/x$ is the price of token 0 in terms of 1. Since token prices in a pool are reciprocals of each other, we can use only one of them in calculations (and by convention Uniswap V3 uses $y/x$). The price of token 1 in terms of token 0 is simply $\frac{1}{y/x}=\frac{x}{y}$. Similarly, $\frac{1}{\sqrt{P}} = \frac{1}{\sqrt{y/x}} = \sqrt{\frac{x}{y}}$.
+$L$代表流动性。资金池的流动性是代币储备（即两个数字）的组合。我们知道它们的乘积是 $k$，我们可以利用这一点来推导出流动性的度量，即
 
-Why using $\sqrt{p}$ instead of $p$? There are two reasons:
+$\sqrt{xy}$
 
-1. Square root calculation is not precise and causes rounding errors. Thus, it's easier to store the square root without calculating it in the contracts (we will not store $x$ and $y$ in the contracts).
-1. $\sqrt{P}$ has an interesting connection to $L$: $L$ is also the relation between the change in output amount and the change in $\sqrt{P}$.
+一个乘以自身等于 $k$ ​​的数字。$L$ 是 $x$ 和 $y$ 的几何平均值。
+
+
+$y/x$ 表示代币 0 相对于代币 1 的价格。由于资金池中的代币价格互为倒数，因此在计算中我们只能使用其中一个（按照惯例，Uniswap V3 使用 $y/x$）。代币 1 相对于代币 0 的价格就是 $y/x$。类似的, $\frac{1}{\sqrt{P}} = \frac{1}{\sqrt{y/x}} = \sqrt{\frac{x}{y}}$.
+
+为什么用 $\sqrt{p}$ 而不是 $p$? 有两个原因:
+
+1. 平方根计算并不精确，会产生舍入误差。因此，在合约中直接存储平方根值（我们不会在合约中存储 x 和 y 的值）更为简便。
+1. $\sqrt{P}$ 与 L 有有趣的联系：L 表示产出量变化区间与$\sqrt{P}$.变化区间的之比 
 
     $$L = \frac{\Delta y}{\Delta\sqrt{P}}$$
 
-> Proof:
+> 证明:
 $$L = \frac{\Delta y}{\Delta\sqrt{P}}$$
 $$\sqrt{xy} = \frac{y_1 - y_0}{\sqrt{P_1} - \sqrt{P_0}}$$
 $$\sqrt{xy} (\sqrt{P_1} - \sqrt{P_0}) = y_1 - y_0$$
@@ -76,44 +81,47 @@ $$\sqrt{\frac{x_1y_1y_1}{x_1}} - \sqrt{\frac{x_0y_0y_0}{x_0}} = y_1 - y_0$$
 $$\sqrt{y_1^2} - \sqrt{y_0^2} = y_1 - y_0$$
 $$y_1 - y_0 = y_1 - y_0$$
 
-## Pricing
+## 定价
 
-Again, we don't need to calculate actual prices–we can calculate the output amount right away. Also, since we're not going to track and store $x$ and $y$, our calculation will be based only on $L$ and $\sqrt{P}$.
+同样，我们不需要计算实际价格——我们可以直接计算供应量。此外，由于我们不会跟踪和存储 x 和 y，我们的计算将仅基于 $L$ 和 $\sqrt{P}$。根据上述公式，我们可以求出 Δy
 
-From the above formula, we can find $\Delta y$:
 
 $$\Delta y = \Delta \sqrt{P} L$$
 
-> See the third step in the proof above.
+> 参见上述证明的第三步。
 
-As we discussed above, prices in a pool are reciprocals of each other. Thus, $\Delta x$ is:
+正如我们前面讨论的，资金池中的价格互为倒数。因此, $\Delta x$ :
 
 $$\Delta x = \Delta \frac{1}{\sqrt{P}} L$$
 
-$L$ and $\sqrt{P}$ allow us to not store and update pool reserves. Also, we don't need to calculate $\sqrt{P}$ each time because we can always find $\Delta \sqrt{P}$ and its reciprocal.
+
+L 和$\sqrt{P}$使我们能够避免存储和更新资金池储备。此外，我们也不需要每次都计算 P ，因为我们总能找到 $\Delta \sqrt{P}$ 及其倒数。
 
 ## Ticks
 
-As we learned in this chapter, the infinite price range of V2 is split into shorter price ranges in V3. Each of these shorter price ranges is limited by boundaries–upper and lower points. To track the coordinates of these boundaries, Uniswap V3 uses *ticks*.
+正如本章所述，V2 的无限价格区间在 V3 中被分割成更短的价格区间。每个更短的价格区间都有其边界——上限和下限。为了追踪这些边界的坐标，Uniswap V3 使用 ticks（最小价格变动单位）。
 
 ![Price ranges and ticks](images/ticks_and_ranges.png)
 
-In V3, the entire price range is demarcated by evenly distributed discrete ticks. Each tick has an index and corresponds to a certain price:
+在V3版本中，整个价格范围由均匀分布的离散价格刻度划分。每个刻度都有一个索引，并对应于特定的价格：
 
 $$p(i) = 1.0001^i$$
 
-Where $p(i)$ is the price at tick $i$. Taking powers of 1.0001 has a desirable property: the difference between two adjacent ticks is 0.01% or *1 basis point*.
+其中 $p(i)$ 是第 i 个刻度的价格。1.0001 的幂具有一个理想的特性：两个相邻刻度之间的差异为 0.01% 或 1 个基准点。
 
-> Basis point (1/100th of 1%, or 0.01%, or 0.0001) is a unit of measure of percentages in finance. You could've heard about the basis point when central banks announced changes in interest rates.
+> 基准点（1%的百分之一，或0.01%，或0.0001）是金融领域中衡量百分比的单位。当各国央行宣布利率变动时，您可能听说过基点。
 
-As we discussed above, Uniswap V3 stores $\sqrt{P}$, not $P$. Thus, the formula is in fact:
+正如我们上面讨论的，Uniswap V3 存储的是 $\sqrt{P}$ ，而不是 P。因此，公式实际上是：
 
 $$\sqrt{p(i)} = \sqrt{1.0001}^i = 1.0001 ^{\frac{i}{2}}$$
 
-So, we get values like: $\sqrt{p(0)} = 1$, $\sqrt{p(1)} = \sqrt{1.0001} \approx 1.00005$, $\sqrt{p(-1)} \approx 0.99995$.
+因此，我们得到如下值： $\sqrt{p(0)} = 1$, $\sqrt{p(1)} = \sqrt{1.0001} \approx 1.00005$, $\sqrt{p(-1)} \approx 0.99995$.
 
-Ticks are integers that can be positive and negative and, of course, they're not infinite. Uniswap V3 stores $\sqrt{P}$ as a fixed point Q64.96 number, which is a rational number that uses 64 bits for the integer part and 96 bits for the fractional part. Thus, prices (equal to the square of $\sqrt{P}$) are within the range: $[2^{-128}, 2^{128}]$. And ticks are within the range:
+Tick 是整数，可以是正数也可以是负数，当然，它们不是无限的。Uniswap V3 将 $\sqrt{P}$ 存储为一个定点数 Q64.96。这是一个有理数，整数部分使用 64 位，小数部分使用 96 位。因此，价格（$\sqrt{P}$ 的平方）的范围为：$[2^{-128}, 2^{128}]$。刻度线的范围为：
 
 $$[log_{1.0001}2^{-128}, log_{1.0001}{2^{128}}] = [-887272, 887272]$$
+> 定点数实际值等于160位的整数除以96位:
+$\frac{2^{160}}{2^{96}}$
+> 所以$\sqrt{P}$范围$[2^{-64}, 2^{64}]$
 
-> For deeper dive into the math of Uniswap V3, I cannot but recommend [this technical note](https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf) by [Atis Elsts](https://twitter.com/atiselsts).
+> 要深入了解 Uniswap V3 的数学原理，我强烈推荐 [Atis Elsts](https://twitter.com/atiselsts) 撰写的这篇[技术说明](https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf)。
