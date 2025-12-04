@@ -1,25 +1,25 @@
-# Calculating liquidity
+# 计算流动性
 
-Trading is not possible without liquidity, and to make our first swap we need to put some liquidity into the pool contract.  Here's what we need to know to add liquidity to the pool contract:
+没有流动性，交易就无法进行。要进行首次互换，我们需要向资金池合约注入一些流动性。以下是向资金池合约添加流动性所需了解的内容：
 
-1. A price range. As a liquidity provider, we want to provide liquidity at a specific price range, and it'll only be used in this range.
-1. Amount of liquidity, which is the amounts of two tokens. We'll need to transfer these amounts to the pool contract.
+1. 价格区间。作为流动性提供商，我们希望在特定的价格区间内提供流动性，并且流动性只会用于该区间内的交易。
+1. 流动性金额，即两种代币的数量。我们需要将这些代币转移到资金池合约中。
 
-Here, we're going to calculate these manually, but, in a later chapter, a contract will do this for us. Let's begin with a price range.
+这里我们将手动计算这些数值，但在后面的章节中，合约将自动完成这些计算。让我们先从价格范围开始。
 
-## Price Range Calculation
+## 价格区间计算
 
-Recall that, in Uniswap V3, the entire price range is demarcated into ticks: each tick corresponds to a price and has an index. In our first pool implementation, we're going to buy ETH for USDC at the price of \$5000 per 1 ETH. Buying ETH will remove some amount of it from the pool and will push the price slightly above \$5000.  We want to provide liquidity at a range that includes this price. And we want to be sure that the final price will stay **within this range** (we'll do multi-range swaps in a later milestone).
+请记住，在 Uniswap V3 中，整个价格区间被划分为若干个“tick”（最小价格单位）：每个“tick”对应一个价格，并有一个索引。在我们的第一个资金池实现中，我们将以 5000 美元/1 ETH 的价格用 USDC 购买 ETH。购买 ETH 会从资金池中移除一部分，并将价格推高至略高于 5000 美元。我们希望提供包含此价格区间的流动性。并且我们希望确保最终价格保持在该区间内（我们将在后续版本中实现多区间互换）。
 
-We'll need to find three ticks:
-1. The current tick will correspond to the current price (5000 USDC for 1 ETH).
-1. The lower and upper bounds of the price range we're providing liquidity into. Let the lower price be \$4545 and the upper price be \$5500.
+我们确定3个 ticks:
+1. 当前价格变动单位将对应于当前价格（1 ETH 兑换 5000 USDC）。
+1. 我们提供流动性的价格区间的下限$l$和上限$u$。假设下限为 4545 美元，上限为 5500 美元。
 
-From the theoretical introduction, we know that:
+从理论介绍中我们可知：
 
 $$\sqrt{P} = \sqrt{\frac{y}{x}}$$
 
-Since we've agreed to use ETH as the $x$ reserve and USDC as the $y$ reserve, the prices at each of the ticks are:
+既然我们已同意使用  x 储备金表示ETH， y 储备金表示USDC，因此每个价格变动单位的价格如下：
 
 $$\sqrt{P_c} = \sqrt{\frac{5000}{1}} = \sqrt{5000} \approx 70.71$$
 
@@ -27,24 +27,24 @@ $$\sqrt{P_l} = \sqrt{\frac{4545}{1}} \approx 67.42$$
 
 $$\sqrt{P_u} = \sqrt{\frac{5500}{1}} \approx 74.16$$
 
-Where $P_c$ is the current price, $P_l$ is the lower bound of the range, and $P_u$ is the upper bound of the range.
+其中 $P_c$​是当前价格，$P_l$​是价格范围的下限，$P_u$ ​是价格范围的上限。
 
-Now, we can find corresponding ticks. We know that prices and ticks are connected via this formula:
+现在，我们可以找到对应的tick。我们知道价格和tick之间的关系可以通过以下公式表示：
 
 $$\sqrt{P(i)}=1.0001^{\frac{i}{2}}$$
 
-Thus, we can find tick $i$ via:
+所以 tick $i$ 等于:
 
 $$i = log_{\sqrt{1.0001}} \sqrt{P(i)}$$
 
-> The square roots in this formula cancel out, but since we're working with $\sqrt{p}$ we need to preserve them.
+> 这个公式中的平方根会消掉，但由于我们需要靠的是 $\sqrt{p}$​我们需要保留它们。 
 
-Let's find the ticks:
-1. Current tick: $i_c = log_{\sqrt{1.0001}} 70.71 = 85176$
-1. Lower tick: $i_l = log_{\sqrt{1.0001}} 67.42 = 84222$
-1. Upper tick: $i_u = log_{\sqrt{1.0001}} 74.16 = 86129$
+来算算 ticks:
+1. 当前 tick: $i_c = log_{\sqrt{1.0001}} 70.71 = 85176$
+1. 最低 tick: $i_l = log_{\sqrt{1.0001}} 67.42 = 84222$
+1. 最高 tick: $i_u = log_{\sqrt{1.0001}} 74.16 = 86129$
 
-> To calculate these, I used Python:
+> 用 python 代码来计算就是:
 > ```python
 > import math
 >
@@ -55,9 +55,9 @@ Let's find the ticks:
 > > 85176
 >```
 
-That's it for price range calculation!
+这就是价格计算!
 
-Last thing to note here is that Uniswap uses [Q64.96 number](https://en.wikipedia.org/wiki/Q_%28number_format%29) to store $\sqrt{P}$. This is a fixed-point number that has 64 bits for the integer part and 96 bits for the fractional part. In our above calculations, prices are floating point numbers: `70.71`, `67.42`, and `74.16`. We need to convert them to Q64.96. Luckily, this is simple: we need to multiply the numbers by $2^{96}$ (Q-number is a binary fixed-point number, so we need to multiply our decimals numbers by the base of Q64.96, which is $2^{96}$). We'll get:
+最后需要注意的是，Uniswap 使用 Q64.96 数来存储  $\sqrt{P}$ 。这是一个定点数，整数部分为 64 位，小数部分为 96 位。在上述计算中，价格均为浮点数：70.71, 67.42, 和 74.16。我们需要将它们转换为 Q64.96。幸运的是，这很简单：我们只需要将这些数字乘以 $2^{96}$ （Q 数是一个二进制定点数，所以我们需要将十进制数乘以 Q64.96 的基数，即 $2^{96}$ ）。我们将得到：
 
 $$\sqrt{P_c} = 5602277097478614198912276234240$$
 
@@ -65,7 +65,7 @@ $$\sqrt{P_l} = 5314786713428871004159001755648$$
 
 $$\sqrt{P_u} = 5875717789736564987741329162240$$
 
-> In Python:
+> 用python来写:
 > ```python
 > q96 = 2**96
 > def price_to_sqrtp(p):
@@ -74,96 +74,94 @@ $$\sqrt{P_u} = 5875717789736564987741329162240$$
 > price_to_sqrtp(5000)
 > > 5602277097478614198912276234240
 > ```
-> Notice that we're multiplying before converting to an integer. Otherwise, we'll lose precision.
+> 我们在乘法之后再进行转换，不然就会损失精度。
 
-## Token Amounts Calculation
+## 计算代币数量
+下一步就是确定我们需要在池子里投入多少代币。答案是想投多少就投多少。金额并没有严格的定义，我们应该存入足够多的资金，以便购买少量 ETH时，当前价格不会偏离我们注入流动性的价格区间。在开发和测试期间，我们可以铸造任意数量的代币，因此获得我们想要的数量不成问题。
 
-The next step is to decide how many tokens we want to deposit into the pool. The answer is as many as we want. The amounts are not strictly defined, we can deposit as much as it is enough to buy a small amount of ETH without making the current price leave the price range we put liquidity into. During development and testing we'll be able to mint any amount of tokens, so getting the amounts we want is not a problem.
+第一次兑换，我们存入 1 个 ETH 和 5000 个 USDC。
 
-For our first swap, let's deposit 1 ETH and 5000 USDC.
+> 请记住，当前资金池储备的比例反映了当前的现货价格。因此，如果我们想向资金池中添加更多代币并保持价格不变，则添加的数量必须成比例，例如：2 ETH 和 10,000 USDC；10 ETH 和 50,000 USDC，等等。
 
-> Recall that the proportion of current pool reserves tells the current spot price. So if we want to put more tokens into the pool and keep the same price, the amounts must be proportional, e.g.: 2 ETH and 10,000 USDC; 10 ETH and 50,000 USDC, etc.
 
-## Liquidity Amount Calculation
+## 流动性计算
 
-Next, we need to calculate $L$ based on the amounts we'll deposit. This is a tricky part, so hold tight!
+接下来，我们需要根据存款金额计算 L。这部分比较复杂，请仔细阅读！ 从理论介绍中，您应该记得：
 
-From the theoretical introduction, you remember that:
+
 $$L = \sqrt{xy}$$
 
-However, this formula is for the infinite curve 🙂 But we want to put liquidity into a limited price range, which is just a segment of that infinite curve. We need to calculate $L$ specifically for the price range we're going to deposit liquidity into. We need some more advanced calculations.
+然而，这个公式是针对无限区间的🙂。但我们想把流动性注入到一个有限的价格区间，也就是这条无限曲线的一部分。我们需要专门针对我们要注入流动性的价格区间来计算流动性 L。这需要一些更复杂的计算。
 
-To calculate $L$ for a price range, let's look at one interesting fact we have discussed earlier: price ranges can be depleted. It's possible to buy the entire amount of one token from a price range and leave the pool with only the other token.
+为了计算价格区间的 L 值，我们来看一个之前讨论过的有趣事实：价格区间内的代币数量可能会耗尽。也就是说，有可能买断价格区间内所有某种代币，而最终池中只剩下另一种代币。
+
 
 ![Range depletion example](images/range_depleted.png)
 
-At the points $a$ and $b$, there's only one token in the range: ETH at the point $a$ and USDC at the point $b$.
+在点 a 和点 b，范围内只有一种代币：点 a 为 ETH，点 b 为 USDC。
 
-That being said, we want to find an $L$ that will allow the price to move to either of the points. We want enough liquidity for the price to reach either of the boundaries of a price range. Thus, we want $L$ to be calculated based on the maximum amounts of $\Delta x$ and $\Delta y$.
+也就是说，我们希望找到一个合适的流动性值 L，使价格能够波动到这两个点中的任何一个。我们需要足够的流动性，使价格能够触及价格区间的任一边界。因此，我们希望 L 的计算基于 Δx 和 Δy 的最大值。
 
-Now, let's see what the prices are at the edges. When ETH is bought from a pool, the price is growing; when USDC is bought, the price is falling. Recall that the price is $\frac{y}{x}$. So, at point $a$, the price is the lowest of the range; at point $b$, the price is the highest.
+现在，我们来看看价格在边界处的变化情况。当从资金池购买 ETH 时，价格上涨；当购买 USDC 时，价格下跌。请记住，价格是 $\frac{y}{x}$ 。因此，在 a 点，价格是该区间的最低点；在 b 点，价格是该区间的最高点。
 
->In fact, prices are not defined at these points because there's only one reserve in the pool, but what we need to understand here is that the price around the point $b$ is higher than the start price, and the price at the point $a$ is lower than the start price.
+> 事实上，这些点的价格并没有确定，因为池中只有一个储备，但我们需要理解的是，b 点附近的价格高于起始价格，而 a 点的价格低于起始价格。
 
-Now, break the curve from the image above into two segments: one to the left of the start point and one to the right of the start point. We're going to calculate **two** $L$'s, one for each of the segments. Why? Because each of the two tokens of a pool contributes to **either of the segments**: the left segment is made entirely of token $x$, and the right segment is made entirely of token $y$. This comes from the fact that, during swapping, the price moves in either direction: it's either growing or falling. For the price to move, only either of the tokens is needed:
-1. when the price is growing, only token $x$ is needed for the swap (we're buying token $x$, so we want to take only token $x$ from the pool);
-1. when the price is falling, only token $y$ is needed for the swap.
+现在，将上图中的曲线分成两段：一段位于起点左侧，一段位于起点右侧。我们将计算两个 L ，每段对应一个 L 。为什么呢？因为资金池中的两种代币分别构成其中一段：左侧段完全由代币 x 构成，右侧段完全由代币 y 构成。这是因为在代币交换过程中，价格会朝两个方向波动：要么上涨，要么下跌。价格的波动只需要两种代币中的一种即可。
+1. 当价格上涨时，只需要代币 x 即可进行兑换（我们购买代币 x，所以我们只想从资金池中取出代币 x）；
+1. 当价格下跌时，只需要代币 y 即可进行兑换。
 
-Thus, the liquidity in the segment of the curve to the left of the current price consists only of token $x$ and is calculated only from the amount of token $x$ provided. Similarly, the liquidity in the segment of the curve to the right of the current price consists only of token $y$ and is calculated only from the amount of token $y$ provided.
+因此，当前价格左侧曲线段的流动性仅由代币 x 构成，且仅根据所提供的代币 x 的数量计算得出。类似地，当前价格右侧曲线段的流动性仅由代币 y 构成，且仅根据所提供的代币 y 的数量计算得出。
 
 ![Liquidity on the curve](images/curve_liquidity.png)
 
-This is why, when providing liquidity, we calculate two $L$'s and pick one of them. Which one? The smaller one. Why?  Because the bigger one already includes the smaller one! We want the new liquidity to be distributed **evenly** along the curve, thus we want to add the same $L$ to the left and to the right of the current price. If we pick the bigger one, the user would need to provide more liquidity to compensate for the shortage in the smaller one. This is doable, of course, but this would make the smart contract more complex.
+这就是为什么在提供流动性时，我们会计算两个流动性值（L），然后选择其中一个。选择哪个呢？较小的那个。为什么？因为较大的那个已经包含了较小的那个！我们希望新增的流动性均匀分布在价格曲线上，因此需要在当前价格的左右两侧各增加相同的流动性值。如果我们选择较大的那个，用户就需要提供更多流动性来弥补较小那个的资金缺口。这当然是可行的，但这会使智能合约更加复杂。
 
-> What happens with the remainder of the bigger $L$? Well, nothing. After picking the smaller $L$ we can simply convert it to a smaller amount of the token that resulted in the bigger $L$–this will adjust it down. After that, we'll have token amounts that will result in the same $L$.
+> 剩下的大 L 会怎么样？其实什么也不会发生。选出小 L 之后，我们可以把它转换成组成大 L 的代币的较小数量——这样就能把它缩小。之后，我们就能得到一些代币，它们都能组成相同的 L。
 
-The final detail I need to focus your attention on here is: **new liquidity must not change the current price**. That is, it must be proportional to the current proportion of the reserves. And this is why the two $L$'s can be different–when the proportion is not preserved. And we pick the small $L$ to reestablish the proportion.
+最后需要强调的是：新增流动性不能改变当前价格。也就是说，它必须与当前储备比例成正比。这就是为什么两个 L 值可能不同——当比例无法维持时。我们会选择较小的 L 值来重新建立比例。
 
-I hope this will make more sense after we implement this in code! Now, let's look at the formulas.
-
-Let's recall how $\Delta x$ and $\Delta y$ are calculated:
-
+希望我们用代码实现之后，大家能更容易理解！现在，我们来看一下公式。 我们先回顾一下 Δx 和 Δy 的计算方法：
 $$\Delta x = \Delta \frac{1}{\sqrt{P}} L$$
 $$\Delta y = \Delta \sqrt{P} L$$
 
-We can expand these formulas by replacing the delta P's with actual prices (we know them from the above):
+我们可以通过用实际价格（我们从上面的公式中可以知道）替换 $\Delta P$ 来扩展这些公式：
 
 $$\Delta x = (\frac{1}{\sqrt{P_c}} - \frac{1}{\sqrt{P_b}}) L$$
 $$\Delta y = (\sqrt{P_c} - \sqrt{P_a}) L$$
 
-$P_a$ is the price at the point $a$, $P_b$ is the price at the point $b$, and $P_c$ is the current price (see the above chart). Notice that, since the price is calculated as $\frac{y}{x}$ (i.e. it's the price of $x$ in terms of $y$), the price at point $b$ is higher than the current price and the price at $a$. The price at $a$ is the lowest of the three.
+$P_a$ 是 $a$ 点的价格, $P_b$ 是 $b$ 点的价格,  $P_c$ 是当前价格 (见上图). 注意到价格 $\frac{y}{x}$ (也就是说 $x$ 相对于 $y$ 的价格),  $b$ 点价格比当前价和 $a$ 点更高。 $a$ 是最低价.
 
-Let's find the $L$ from the first formula:
+来用第一个公示求出 $L$ :
 
 $$\Delta x = (\frac{1}{\sqrt{P_c}} - \frac{1}{\sqrt{P_b}}) L$$
 $$\Delta x = \frac{L}{\sqrt{P_c}} - \frac{L}{\sqrt{P_b}}$$
 $$\Delta x = \frac{L(\sqrt{P_b} - \sqrt{P_c})}{\sqrt{P_b} \sqrt{P_c}}$$
 $$L = \Delta x \frac{\sqrt{P_b} \sqrt{P_c}}{\sqrt{P_b} - \sqrt{P_c}}$$
 
-And from the second formula:
+然后由第二个公示得到:
 $$\Delta y = (\sqrt{P_c} - \sqrt{P_a}) L$$
 $$L = \frac{\Delta y}{\sqrt{P_c} - \sqrt{P_a}}$$
 
-So, these are our two $L$'s, one for each of the segments:
+所以每一段有一个 $L$ 解:
 
 $$L = \Delta x \frac{\sqrt{P_b} \sqrt{P_c}}{\sqrt{P_b} - \sqrt{P_c}}$$
 $$L = \frac{\Delta y}{\sqrt{P_c} - \sqrt{P_a}}$$
 
-Now, let's plug the prices we calculated earlier into them:
+我们把之前计算的价格代入:
 
 $$L = \Delta x \frac{\sqrt{P_b}\sqrt{P_c}}{\sqrt{P_b}-\sqrt{P_c}} = 1 ETH * \frac{5875... * 5602...}{5875... - 5602...}$$
 
-After converting to Q64.96, we get:
+转化为 Q64.96:
 
 $$L = 1519437308014769733632$$
 
-And for the other $L$:
+$L$ 的另一个解:
 $$L = \frac{\Delta y}{\sqrt{P_c}-\sqrt{P_a}} = \frac{5000USDC}{5602... - 5314...}$$
 $$L = 1517882343751509868544$$
 
-Of these two, we'll pick the smaller one.
+我们从中选择小的那个。
 
-> In Python:
+>  Python:
 > ```python
 > sqrtp_low = price_to_sqrtp(4545)
 > sqrtp_cur = price_to_sqrtp(5000)
@@ -189,16 +187,16 @@ Of these two, we'll pick the smaller one.
 > > 1517882343751509868544
 > ```
 
-## Token Amounts Calculation, Again
+## 二次验证代币
 
-Since we choose the amounts we're going to deposit, the amounts can be wrong. We cannot deposit any amounts at any price range; the liquidity amount needs to be distributed evenly along the curve of the price range we're depositing into. Thus, even though users choose amounts, the contract needs to re-calculate them, and actual amounts will be slightly different (at least because of rounding).
+是我们自己决定的存入金额，这个金额可能不对。我们不应该随意在任何价格区间存入随意金额，流动性需要均匀分布在价格区间曲线上。所以，即使用户自己决定了金额，合约也要二次验证。而且实际的金额可能会有点不同（至少舍入值会不一样）。
 
-Luckily, we already know the formulas:
+我们早就知道公式:
 
 $$\Delta x = \frac{L(\sqrt{P_b} - \sqrt{P_c})}{\sqrt{P_b} \sqrt{P_c}}$$
 $$\Delta y = L(\sqrt{P_c} - \sqrt{P_a})$$
 
-> In Python:
+>  Python:
 > ```python
 > def calc_amount0(liq, pa, pb):
 >     if pa > pb:
@@ -216,7 +214,7 @@ $$\Delta y = L(\sqrt{P_c} - \sqrt{P_a})$$
 > (amount0, amount1)
 > > (998976618347425408, 5000000000000000000000)
 > ```
-> As you can see, the numbers are close to the amounts we want to provide, but ETH is slightly smaller.
+> 如你所见，数字和我们计算的很接近，但是ETH储备略小。
 
-> **Hint**: use `cast --from-wei AMOUNT` to convert from wei to ether, e.g.:  
-> `cast --from-wei 998976618347425280` will give you `0.998976618347425280`.
+> **提示**: 用 `cast --from-wei AMOUNT` 命令可以从wei转换到ETH, 例如.:  
+> `cast --from-wei 998976618347425280` 可以得到 `0.998976618347425280`.
